@@ -58,7 +58,6 @@ static struct pam_conv pamc = { misc_conv, NULL };
 
 #elif defined(SOLARIS_PAM) /* illumos & Solaris */
 #include "pm_pam_conv.h"
-// static struct pam_conv pamc = { pam_tty_conv, NULL };
 #if defined(OMNIOS_PAM)
     static struct pam_conv pamc = { (int (*)(int, const struct pam_message **, struct pam_response **, void *))pam_tty_conv, NULL };
 #else
@@ -119,21 +118,37 @@ match(uid_t uid, gid_t *groups, int ngroups, uid_t target, const char *cmd,
     const char **cmdargs, struct rule *r)
 {
 	int i;
+	uid_t uid2;
 
-	if (r->ident[0] == ':') {
-		gid_t rgid;
-		if (parsegid(r->ident + 1, &rgid) == -1)
+	/* Handle dual-user rules */
+	if (r->ident2) {
+		/* For dual-user rules, uid must match either ident or ident2 */
+		/* The actual authentication happens in main() */
+		if (r->ident[0] == ':' || r->ident2[0] == ':') {
+			/* Groups not supported for dual-user auth */
 			return 0;
-		for (i = 0; i < ngroups; i++) {
-			if (rgid == groups[i])
-				break;
 		}
-		if (i == ngroups)
+		
+		if (uidcheck(r->ident, uid) != 0 && uidcheck(r->ident2, uid) != 0)
 			return 0;
 	} else {
-		if (uidcheck(r->ident, uid) != 0)
-			return 0;
+		/* Single user rule - original logic */
+		if (r->ident[0] == ':') {
+			gid_t rgid;
+			if (parsegid(r->ident + 1, &rgid) == -1)
+				return 0;
+			for (i = 0; i < ngroups; i++) {
+				if (rgid == groups[i])
+					break;
+			}
+			if (i == ngroups)
+				return 0;
+		} else {
+			if (uidcheck(r->ident, uid) != 0)
+				return 0;
+		}
 	}
+	
 	if (r->target && uidcheck(r->target, target) != 0)
 		return 0;
 	if (r->cmd) {
@@ -275,6 +290,37 @@ good:
 }
 #endif
 
+#if defined(USE_PAM)
+static int
+authuser_pam(const char *username, const char *label)
+{
+	pam_handle_t *pamh = NULL;
+	int pam_err;
+
+	fprintf(stderr, "[%s] ", label);
+	fflush(stderr);
+
+	pam_err = pam_start("doas", username, &pamc, &pamh);
+	if (pam_err != PAM_SUCCESS) {
+		if (pamh != NULL)
+			pam_end(pamh, pam_err);
+		return -1;
+	}
+
+	pam_err = pam_authenticate(pamh, PAM_SILENT);
+	if (pam_err == PAM_SUCCESS) {
+		pam_err = pam_acct_mgmt(pamh, PAM_SILENT);
+		if (pam_err == PAM_NEW_AUTHTOK_REQD) {
+			pam_err = pam_chauthtok(pamh, PAM_SILENT|PAM_CHANGE_EXPIRED_AUTHTOK);
+		}
+	}
+
+	pam_end(pamh, pam_err);
+
+	return (pam_err == PAM_SUCCESS) ? 0 : -1;
+}
+#endif
+
 int
 main(int argc, char **argv)
 {
@@ -319,12 +365,6 @@ main(int argc, char **argv)
 		case 'C':
 			confpath = optarg;
 			break;
-/*		case 'L':
-			i = open("/dev/tty", O_RDWR);
-			if (i != -1)
-				ioctl(i, TIOCCLRVERAUTH);
-			exit(i != -1);
-*/
 		case 'u':
 			if (strlcpy(targetname, optarg, sizeof(targetname)) >= sizeof(targetname))
 				errx(1, "pw_name too long");
@@ -409,12 +449,45 @@ main(int argc, char **argv)
 		argv[0] = "-doas";
 	}
 
+	/* Dual-user authentication */
 	if (!(rule->options & NOPASS)) {
 		if (nflag)
 			errx(1, "Authorization required");
 
+		if (rule->ident2) {
+			/* Dual-user authentication required */
+			char user1[_PW_NAME_LEN + 1], user2[_PW_NAME_LEN + 1];
+			
+			strlcpy(user1, rule->ident, sizeof(user1));
+			strlcpy(user2, rule->ident2, sizeof(user2));
+
+			fprintf(stderr, "Dual authentication required for %s and %s\n", 
+			        user1, user2);
+
+#if defined(USE_BSD_AUTH)
+			authuser(user1, login_style, rule->options & PERSIST);
+			authuser(user2, login_style, rule->options & PERSIST);
+#elif defined(USE_PAM)
+			if (authuser_pam(user1, user1) != 0) {
+				syslog(LOG_AUTHPRIV | LOG_NOTICE,
+				    "failed auth for %s", user1);
+				errx(EXIT_FAILURE, "authentication failed for %s", user1);
+			}
+			
+			if (authuser_pam(user2, user2) != 0) {
+				syslog(LOG_AUTHPRIV | LOG_NOTICE,
+				    "failed auth for %s", user2);
+				errx(EXIT_FAILURE, "authentication failed for %s", user2);
+			}
+#else
+#error	No auth module!
+#endif
+			syslog(LOG_AUTHPRIV | LOG_INFO,
+			    "dual auth succeeded for %s and %s", user1, user2);
+		} else {
+			/* Single user authentication - original code */
 #if defined(USE_BSD_AUTH) 
-		authuser(myname, login_style, rule->options & PERSIST);
+			authuser(myname, login_style, rule->options & PERSIST);
 #elif defined(USE_PAM)
 #define PAM_END(msg) do { 						\
 	syslog(LOG_ERR, "%s: %s", msg, pam_strerror(pamh, pam_err)); 	\
@@ -422,56 +495,56 @@ main(int argc, char **argv)
 	pam_end(pamh, pam_err);						\
 	exit(EXIT_FAILURE);						\
 } while (/*CONSTCOND*/0)
-		pam_handle_t *pamh = NULL;
-		int pam_err;
+			pam_handle_t *pamh = NULL;
+			int pam_err;
+			int temp_stdin;
 
-/* #ifndef __linux__ */
-		int temp_stdin;
+			temp_stdin = dup(STDIN_FILENO);
+			if (temp_stdin == -1)
+				err(1, "dup");
+			close(STDIN_FILENO);
 
-		/* openpam_ttyconv checks if stdin is a terminal and
-		 * if it is then does not bother to open /dev/tty.
-		 * The result is that PAM writes the password prompt
-		 * directly to stdout.  In scenarios where stdin is a
-		 * terminal, but stdout is redirected to a file
-		 * e.g. by running doas ls &> ls.out interactively,
-		 * the password prompt gets written to ls.out as well.
-		 * By closing stdin first we forces PAM to read/write
-		 * to/from the terminal directly.  We restore stdin
-		 * after authenticating. */
-		temp_stdin = dup(STDIN_FILENO);
-		if (temp_stdin == -1)
-			err(1, "dup");
-		close(STDIN_FILENO);
-/* #else */
-		/* force password prompt to display on stderr, not stdout */
-		int temp_stdout = dup(1);
-		if (temp_stdout == -1)
-			err(1, "dup");
-		close(1);
-		if (dup2(2, 1) == -1)
-			err(1, "dup2");
-/* #endif */
+			int temp_stdout = dup(1);
+			if (temp_stdout == -1)
+				err(1, "dup");
+			close(1);
+			if (dup2(2, 1) == -1)
+				err(1, "dup2");
 
-		pam_err = pam_start("doas", myname, &pamc, &pamh);
-		if (pam_err != PAM_SUCCESS) {
-			if (pamh != NULL)
-				PAM_END("pam_start");
-			syslog(LOG_ERR, "pam_start failed: %s",
-			    pam_strerror(pamh, pam_err));
-			errx(EXIT_FAILURE, "pam_start failed");
-		}
+			pam_err = pam_start("doas", myname, &pamc, &pamh);
+			if (pam_err != PAM_SUCCESS) {
+				if (pamh != NULL)
+					PAM_END("pam_start");
+				syslog(LOG_ERR, "pam_start failed: %s",
+				    pam_strerror(pamh, pam_err));
+				errx(EXIT_FAILURE, "pam_start failed");
+			}
 
-		switch (pam_err = pam_authenticate(pamh, PAM_SILENT)) {
-		case PAM_SUCCESS:
-			switch (pam_err = pam_acct_mgmt(pamh, PAM_SILENT)) {
+			switch (pam_err = pam_authenticate(pamh, PAM_SILENT)) {
 			case PAM_SUCCESS:
-				break;
+				switch (pam_err = pam_acct_mgmt(pamh, PAM_SILENT)) {
+				case PAM_SUCCESS:
+					break;
 
-			case PAM_NEW_AUTHTOK_REQD:
-				pam_err = pam_chauthtok(pamh,
-				    PAM_SILENT|PAM_CHANGE_EXPIRED_AUTHTOK);
-				if (pam_err != PAM_SUCCESS)
-					PAM_END("pam_chauthtok");
+				case PAM_NEW_AUTHTOK_REQD:
+					pam_err = pam_chauthtok(pamh,
+					    PAM_SILENT|PAM_CHANGE_EXPIRED_AUTHTOK);
+					if (pam_err != PAM_SUCCESS)
+						PAM_END("pam_chauthtok");
+					break;
+
+				case PAM_AUTH_ERR:
+				case PAM_USER_UNKNOWN:
+				case PAM_MAXTRIES:
+					syslog(LOG_AUTHPRIV | LOG_NOTICE,
+					    "failed auth for %s", myname);
+					errx(EXIT_FAILURE, "second authentication failed");
+					break;
+
+				default:
+					PAM_END("pam_acct_mgmt");
+					break;
+				}
 				break;
 
 			case PAM_AUTH_ERR:
@@ -479,49 +552,30 @@ main(int argc, char **argv)
 			case PAM_MAXTRIES:
 				syslog(LOG_AUTHPRIV | LOG_NOTICE,
 				    "failed auth for %s", myname);
-                                errx(EXIT_FAILURE, "second authentication failed");
+				errx(EXIT_FAILURE, "authentication failed");
 				break;
 
 			default:
-				PAM_END("pam_acct_mgmt");
+				PAM_END("pam_authenticate");
 				break;
 			}
-			break;
-
-		case PAM_AUTH_ERR:
-		case PAM_USER_UNKNOWN:
-		case PAM_MAXTRIES:
-			syslog(LOG_AUTHPRIV | LOG_NOTICE,
-			    "failed auth for %s", myname);
-                        errx(EXIT_FAILURE, "authentication failed");
-			break;
-
-		default:
-			PAM_END("pam_authenticate");
-			break;
-		}
-		pam_end(pamh, pam_err);
+			pam_end(pamh, pam_err);
 
 #ifndef __linux__
-		/* Re-establish stdin */
-		if (dup2(temp_stdin, STDIN_FILENO) == -1)
-			err(1, "dup2");
-		close(temp_stdin);
+			if (dup2(temp_stdin, STDIN_FILENO) == -1)
+				err(1, "dup2");
+			close(temp_stdin);
 #else 
-		/* Re-establish stdout */
-		close(1);
-		if (dup2(temp_stdout, 1) == -1)
-			err(1, "dup2");
+			close(1);
+			if (dup2(temp_stdout, 1) == -1)
+				err(1, "dup2");
 #endif
 #else
 #error	No auth module!
 #endif
+		}
 	}
 
-        /*
-	if (pledge("stdio rpath getpw exec id", NULL) == -1)
-		err(1, "pledge");
-        */
 	if (targetname[0] == '\0')
 		temp_pw = getpwuid(target);
 	else
@@ -557,20 +611,11 @@ main(int argc, char **argv)
 		err(1, "setreuid");
 	#endif
 #endif
-        /*
-	if (pledge("stdio rpath exec", NULL) == -1)
-		err(1, "pledge");
-        */
 
 	if (getcwd(cwdpath, sizeof(cwdpath)) == NULL)
 		cwd = "(failed)";
 	else
 		cwd = cwdpath;
-
-	/*
-        if (pledge("stdio exec", NULL) == -1)
-		err(1, "pledge");
-        */
 
         /* skip logging if NOLOG is set */
         if (!(rule->options & NOLOG))
@@ -590,4 +635,3 @@ main(int argc, char **argv)
 		errx(1, "%s: command not found", cmd);
 	err(1, "%s", cmd);
 }
-

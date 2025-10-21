@@ -19,6 +19,7 @@ struct rule {
 	int action;
 	int options;
 	const char *ident;
+	const char *ident2;  /* Second user for dual authentication */
 	const char *target;
 	const char *cmd;
 	const char **cmdargs;

@@ -39,6 +39,10 @@ typedef struct {
 		};
 		const char **strlist;
 		const char *str;
+		struct {
+			const char *str1;
+			const char *str2;
+		} dualstr;
 	};
 	int lineno;
 	int colno;
@@ -72,7 +76,7 @@ arraylen(const char **arr)
 
 %token TPERMIT TDENY TAS TCMD TARGS
 %token TNOPASS TNOLOG TPERSIST TKEEPENV TSETENV
-%token TSTRING
+%token TSTRING TCOMMA
 
 %%
 
@@ -90,7 +94,8 @@ rule:		action ident target cmd {
 			r->action = $1.action;
 			r->options = $1.options;
 			r->envlist = $1.envlist;
-			r->ident = $2.str;
+			r->ident = $2.dualstr.str1;
+			r->ident2 = $2.dualstr.str2;
 			r->target = $3.str;
 			r->cmd = $4.cmd;
 			r->cmdargs = $4.cmdargs;
@@ -165,7 +170,11 @@ strlist:	/* empty */ {
 
 
 ident:		TSTRING {
-			$$.str = $1.str;
+			$$.dualstr.str1 = $1.str;
+			$$.dualstr.str2 = NULL;
+		} | TSTRING TCOMMA TSTRING {
+			$$.dualstr.str1 = $1.str;
+			$$.dualstr.str2 = $3.str;
 		} ;
 
 target:		/* optional */ {
@@ -242,6 +251,8 @@ repeat:
 		case '{':
 		case '}':
 			return c;
+		case ',':
+			return TCOMMA;
 		case '#':
 			/* skip comments; NUL is allowed; no continuation */
 			while ((c = getc(yyfp)) != '\n')
@@ -290,6 +301,7 @@ repeat:
 			/* FALLTHROUGH */
 		case '{':
 		case '}':
+		case ',':
 		case '#':
 		case ' ':
 		case '\t':
