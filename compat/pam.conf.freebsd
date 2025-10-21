@@ -1,7 +1,7 @@
 #
 # $FreeBSD$
 #
-# PAM configuration for the "doas" service
+# PAM configuration for the "duoas" service
 #
 
 # auth

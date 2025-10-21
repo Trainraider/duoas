@@ -91,10 +91,10 @@ jobs:
       - name: 'Smoke test'
         run: |-
           set -x
-          sudo chown root:root ./doas
-          sudo chmod u+s ./doas
-          sudo tee -a /usr/local/etc/doas.conf <<<"permit nopass ${USER} as nobody"
-          [[ "$(./doas -u nobody id -u -n)" == nobody ]]
+          sudo chown root:root ./duoas
+          sudo chmod u+s ./duoas
+          sudo tee -a /usr/local/etc/duoas.conf <<<"permit nopass ${USER} as nobody"
+          [[ "$(./duoas -u nobody id -u -n)" == nobody ]]
 
       - name: 'Clean'
         run: |-

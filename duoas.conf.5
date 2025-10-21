@@ -1,4 +1,4 @@
-.\" $OpenBSD: doas.conf.5,v 1.31 2016/12/05 10:58:07 schwarze Exp $
+.\" $OpenBSD: duoas.conf.5,v 1.31 2016/12/05 10:58:07 schwarze Exp $
 .\"
 .\"Copyright (c) 2015 Ted Unangst <tedu@openbsd.org>
 .\"
@@ -14,16 +14,16 @@
 .\"ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\"OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .Dd $Mdocdate: December 5 2016 $
-.Dt DOAS.CONF 5
+.Dt DUOAS.CONF 5
 .Os
 .Sh NAME
-.Nm doas.conf
-.Nd doas configuration file
+.Nm duoas.conf
+.Nd duoas configuration file
 .Sh SYNOPSIS
-.Nm @DOAS_CONF@
+.Nm @DUOAS_CONF@
 .Sh DESCRIPTION
 The
-.Xr doas 1
+.Xr duoas 1
 utility executes commands as other users according to the rules
 in the
 .Nm
@@ -68,7 +68,7 @@ keepenv. When in doubt, try to avoid using keepenv as it is less secure to have
 environment variables passed to privileged users.
 
 Note: The target user's PATH variable can be set at compile time by adjusting the
-GLOBAL_PATH variable in doas's Makefile. By default, the target user's path will
+GLOBAL_PATH variable in duoas's Makefile. By default, the target user's path will
 be set to "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:"
 .It Ic setenv { Oo Ar variable ... Oc Oo Ar variable=value ... Oc Ic }
 In addition to the variables mentioned above, keep the space-separated
@@ -93,15 +93,15 @@ The target user the running user is allowed to run the command as.
 The default is all users.
 Please be aware that on some systems multiple usernames can resolve to
 the same UID. For example, on FreeBSD it is common to have both toor and root
-resolve to UID 0. The doas utility will allow any username that matches a shared
+resolve to UID 0. The duoas utility will allow any username that matches a shared
 UID to match when the -u flag is invoked. This means if you have the rule 
 .Bd -literal -offset indent
 permit alice as toor 
 
 .Ed
-in your doas.conf file, the command "doas -u root" can be successfully run from
+in your duoas.conf file, the command "duoas -u root" can be successfully run from
 Alice's account in situations where both root and toor share the same UID. In short,
-doas cares about the UID behind the username, not the specific username given on the
+duoas cares about the UID behind the username, not the specific username given on the
 command line.
 .It Ic cmd Ar command
 The command the user is allowed or denied to run.
@@ -141,9 +141,9 @@ If quotes or backslashes are used in a word,
 it is not considered a keyword.
 .El
 .Sh NOTES
-To make editing the doas.conf file safer, a convenience script called
-vidoas is included with the doas software. This script can be run as
-the root user (or via doas or sudo) and automatically checks the syntax of the doas.conf file
+To make editing the duoas.conf file safer, a convenience script called
+viduoas is included with the duoas software. This script can be run as
+the root user (or via duoas or sudo) and automatically checks the syntax of the duoas.conf file
 before installing it on the system.
 
 Please take note that it is a bad idea to assign permission to users
@@ -158,15 +158,15 @@ The above example uses two rules to permit Susan to switch to any user, except
 root. This is dangerous for two reasons. First, it means if new users,
 including ones with admin access, are added to the system later then
 Susan can use their accounts. It also means if the file is truncated or
-accessed while being updated the doas program may read the first rule
+accessed while being updated the duoas program may read the first rule
 before the second has been written, giving Susan access to everything,
 including the root account. The better approach to is explicity allow Susan
 to access only specific accounts she needs to use.
 
-Entries in the doas.conf file must end with a newline character to
+Entries in the duoas.conf file must end with a newline character to
 indicate where a rule ends. Most text editors will add a newline or
 end of line character for you, however not all tools do. Please make
-sure each rule in your doas.conf file ends with a newline (Enter)
+sure each rule in your duoas.conf file ends with a newline (Enter)
 character. Otherwise syntax checks will fail with an error
 "syntax error at line..."
 
@@ -191,12 +191,12 @@ permit nopass setenv { \e
         MULTI_PACKAGES NOMAN OKAY_FILES OWNER PKG_DBDIR \e
         PKG_DESTDIR PKG_TMPDIR PORTSDIR RELEASEDIR SHARED_ONLY \e
         SUBPACKAGE WRKOBJDIR SUDO_PORT_V1 } :wsrc
-permit setenv { -ENV PS1=$DOAS_PS1 SSH_AUTH_SOCK } :wheel
+permit setenv { -ENV PS1=$DUOAS_PS1 SSH_AUTH_SOCK } :wheel
 permit nopass tedu as root cmd /usr/sbin/procmap
 permit nopass keepenv root as root
 .Ed
 .Sh SEE ALSO
-.Xr doas 1
+.Xr duoas 1
 .Sh HISTORY
 The
 .Nm

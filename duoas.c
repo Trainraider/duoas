@@ -1,4 +1,4 @@
-/* $OpenBSD: doas.c,v 1.57 2016/06/19 19:29:43 martijn Exp $ */
+/* $OpenBSD: duoas.c,v 1.57 2016/06/19 19:29:43 martijn Exp $ */
 /*
  * Copyright (c) 2015 Ted Unangst <tedu@openbsd.org>
  *
@@ -67,12 +67,12 @@ static struct pam_conv pamc = { misc_conv, NULL };
 #endif /* OPENPAM */
 #endif /* USE_PAM */
 
-#include "doas.h"
+#include "duoas.h"
 
 static void 
 usage(void)
 {
-	fprintf(stderr, "usage: doas [-nSs] [-a style] [-C config] [-u user]"
+	fprintf(stderr, "usage: duoas [-nSs] [-a style] [-C config] [-u user]"
 	    " command [args]\n");
 	exit(1);
 }
@@ -195,7 +195,7 @@ parseconfig(const char *filename, int checkperms)
 
 	yyfp = fopen(filename, "r");
 	if (!yyfp)
-		err(1, checkperms ? "doas is not enabled, %s" :
+		err(1, checkperms ? "duoas is not enabled, %s" :
 		    "could not open config file %s", filename);
 
 	if (checkperms) {
@@ -257,7 +257,7 @@ authuser(char *myname, char *login_style, int persist)
 			goto good;
 	}
 
-	if (!(as = auth_userchallenge(myname, login_style, "auth-doas",
+	if (!(as = auth_userchallenge(myname, login_style, "auth-duoas",
 	    &challenge)))
 		errx(1, "Authorization failed");
 	if (!challenge) {
@@ -265,7 +265,7 @@ authuser(char *myname, char *login_style, int persist)
 		if (gethostname(host, sizeof(host)))
 			snprintf(host, sizeof(host), "?");
 		snprintf(cbuf, sizeof(cbuf),
-		    "\rdoas (%.32s@%.32s) password: ", myname, host);
+		    "\rduoas (%.32s@%.32s) password: ", myname, host);
 		challenge = cbuf;
 	}
 	response = readpassphrase(challenge, rbuf, sizeof(rbuf),
@@ -300,7 +300,7 @@ authuser_pam(const char *username, const char *label)
 	fprintf(stderr, "[%s] ", label);
 	fflush(stderr);
 
-	pam_err = pam_start("doas", username, &pamc, &pamh);
+	pam_err = pam_start("duoas", username, &pamc, &pamh);
 	if (pam_err != PAM_SUCCESS) {
 		if (pamh != NULL)
 			pam_end(pamh, pam_err);
@@ -348,7 +348,7 @@ main(int argc, char **argv)
         #endif
 	char **envp;
 
-	setprogname("doas");
+	setprogname("duoas");
 
 	closefrom(STDERR_FILENO + 1);
 
@@ -426,7 +426,7 @@ main(int argc, char **argv)
 	if (geteuid())
 		errx(1, "not installed setuid");
 
-	parseconfig(DOAS_CONF, 1);
+	parseconfig(DUOAS_CONF, 1);
 
 	/* cmdline is used only for logging, no need to abort on truncate */
 	(void)strlcpy(cmdline, argv[0], sizeof(cmdline));
@@ -446,7 +446,7 @@ main(int argc, char **argv)
 	}
 
 	if (Sflag) {
-		argv[0] = "-doas";
+		argv[0] = "-duoas";
 	}
 
 	/* Dual-user authentication */
@@ -511,7 +511,7 @@ main(int argc, char **argv)
 			if (dup2(2, 1) == -1)
 				err(1, "dup2");
 
-			pam_err = pam_start("doas", myname, &pamc, &pamh);
+			pam_err = pam_start("duoas", myname, &pamc, &pamh);
 			if (pam_err != PAM_SUCCESS) {
 				if (pamh != NULL)
 					PAM_END("pam_start");

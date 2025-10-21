@@ -2,16 +2,16 @@ CAT?=cat
 SED?=sed
 CC?=clang
 YACC?=yacc
-BIN=doas
+BIN=duoas
 PREFIX?=/usr/local
 MANDIR?=$(DESTDIR)$(PREFIX)/man
 SYSCONFDIR?=$(DESTDIR)$(PREFIX)/etc
-DOAS_CONF=$(SYSCONFDIR)/doas.conf
-OBJECTS=doas.o env.o compat/execvpe.o compat/reallocarray.o y.tab.o 
+DUOAS_CONF=$(SYSCONFDIR)/duoas.conf
+OBJECTS=duoas.o env.o compat/execvpe.o compat/reallocarray.o y.tab.o 
 OPT?=-O2
 # Can set GLOBAL_PATH here to set PATH for target user.
 # TARGETPATH=-DGLOBAL_PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:\"
-CFLAGS+=-Wall $(OPT) -DUSE_PAM -DDOAS_CONF=\"$(DOAS_CONF)\" $(TARGETPATH)
+CFLAGS+=-Wall $(OPT) -DUSE_PAM -DDUOAS_CONF=\"$(DUOAS_CONF)\" $(TARGETPATH)
 CPPFLAGS+=-include compat/compat.h
 LDFLAGS+=-lpam
 UNAME_S := $(shell uname -s)
@@ -32,7 +32,7 @@ ifeq ($(UNAME_S),MidnightBSD)
 endif
 ifeq ($(UNAME_S),NetBSD)
     CFLAGS+=-DHAVE_LOGIN_CAP_H -D_OPENBSD_SOURCE
-    OBJECTS=doas.o env.o y.tab.o
+    OBJECTS=duoas.o env.o y.tab.o
     LDFLAGS+=-lutil
 endif
 ifeq ($(UNAME_S),SunOS)
@@ -51,20 +51,20 @@ ifeq ($(UNAME_S),Darwin)
     MANDIR=$(DESTDIR)$(PREFIX)/share/man
 endif
 
-FINALS=doas.1.final doas.conf.5.final vidoas.final vidoas.8.final 
+FINALS=duoas.1.final duoas.conf.5.final viduoas.final viduoas.8.final 
 
 all: $(BIN) $(FINALS)
 
 $(BIN): $(OBJECTS)
 	$(CC) -o $(BIN) $(OBJECTS) $(LDFLAGS)
 
-env.o: doas.h env.c
+env.o: duoas.h env.c
 
-execvpe.o: doas.h execvpe.c
+execvpe.o: duoas.h execvpe.c
 
-doas.o: doas.h doas.c parse.y
+duoas.o: duoas.h duoas.c parse.y
 
-reallocarray.o: doas.h reallocarray.c
+reallocarray.o: duoas.h reallocarray.c
 
 y.tab.o: parse.y
 	$(YACC) parse.y
@@ -74,26 +74,26 @@ install: $(BIN) $(FINALS)
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp $(BIN) $(DESTDIR)$(PREFIX)/bin/
 	chmod 4755 $(DESTDIR)$(PREFIX)/bin/$(BIN)
-	cp vidoas.final $(DESTDIR)$(PREFIX)/bin/vidoas
-	chmod 755 $(DESTDIR)$(PREFIX)/bin/vidoas
-	cp doasedit $(DESTDIR)$(PREFIX)/bin/doasedit
-	chmod 755 $(DESTDIR)$(PREFIX)/bin/doasedit
+	cp viduoas.final $(DESTDIR)$(PREFIX)/bin/viduoas
+	chmod 755 $(DESTDIR)$(PREFIX)/bin/viduoas
+	cp duoasedit $(DESTDIR)$(PREFIX)/bin/duoasedit
+	chmod 755 $(DESTDIR)$(PREFIX)/bin/duoasedit
 	mkdir -p $(MANDIR)/man1
-	cp doas.1.final $(MANDIR)/man1/doas.1
+	cp duoas.1.final $(MANDIR)/man1/duoas.1
 	mkdir -p $(MANDIR)/man5
-	cp doas.conf.5.final $(MANDIR)/man5/doas.conf.5
+	cp duoas.conf.5.final $(MANDIR)/man5/duoas.conf.5
 	mkdir -p $(MANDIR)/man8
-	cp vidoas.8.final $(MANDIR)/man8/vidoas.8
-	cp doasedit.8 $(MANDIR)/man8/doasedit.8
+	cp viduoas.8.final $(MANDIR)/man8/viduoas.8
+	cp duoasedit.8 $(MANDIR)/man8/duoasedit.8
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/doas
-	rm -f $(DESTDIR)$(PREFIX)/bin/vidoas
-	rm -f $(DESTDIR)$(PREFIX)/bin/doasedit
-	rm -f $(MANDIR)/man1/doas.1
-	rm -f $(MANDIR)/man5/doas.conf.5
-	rm -f $(MANDIR)/man8/vidoas.8
-	rm -f $(MANDIR)/man8/doasedit.8
+	rm -f $(DESTDIR)$(PREFIX)/bin/duoas
+	rm -f $(DESTDIR)$(PREFIX)/bin/viduoas
+	rm -f $(DESTDIR)$(PREFIX)/bin/duoasedit
+	rm -f $(MANDIR)/man1/duoas.1
+	rm -f $(MANDIR)/man5/duoas.conf.5
+	rm -f $(MANDIR)/man8/viduoas.8
+	rm -f $(MANDIR)/man8/duoasedit.8
 
 clean:
 	rm -f $(BIN) $(OBJECTS) y.tab.c
@@ -101,9 +101,9 @@ clean:
 
 # Doing it this way allows to change the original files
 # only partially instead of renaming them.
-doas.1.final: doas.1
-doas.conf.5.final: doas.conf.5
-vidoas.final: vidoas
-vidoas.8.final: vidoas.8
+duoas.1.final: duoas.1
+duoas.conf.5.final: duoas.conf.5
+viduoas.final: viduoas
+viduoas.8.final: viduoas.8
 $(FINALS):
-	$(CAT) $^ | $(SED) 's,@DOAS_CONF@,$(DOAS_CONF),g' > $@
+	$(CAT) $^ | $(SED) 's,@DUOAS_CONF@,$(DUOAS_CONF),g' > $@

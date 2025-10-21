@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2021 Jesse Smith <jessefrgsmith@yahoo.ca>
+.\" Copyright (c) 2020 Kimmo Suominen <kim@netbsd.org>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for
 .\" any purpose with or without fee is hereby granted, provided that
@@ -15,40 +15,56 @@
 .\" TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 .\" PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd September 13, 2021
-.Dt DOASEDIT 8
+.Dd November 9, 2020
+.Dt VIDUOAS 8
 .Os
 .Sh NAME
-.Nm doasedit
-.Nd edit a text file and then write the file back to its original location with admin access
+.Nm viduoas
+.Nd edit a duoas configuration file
 .Sh SYNOPSIS
 .Nm
+.Op Fl n
 .Op Ar file
+.Nm
+.Fl h
 .Sh DESCRIPTION
 The
 .Nm
 utility opens an editor on a temporary copy of a
-text file. Once the file has been altered, it is written
-back to the original location, using doas for elevated access.
-This is intended for use in editing configuration files where
-the user may need to be root to edit a file, but does not wish
-to run their text editor as the super user.
+.Xr duoas 1
+configuration file and checks it for syntax errors before installing it
+as the actual configuration file.
 .Pp
-The doasedit utility accepts one argument, the file to
-be edited. The text editor used during the editing process
-is set using the VISUAL environment variable. If VISUAL fails
-to run, EDITOR is tried instead.
+The options are as follows:
+.Bl -tag -width EDITOR
+.It Fl h
+Show a usage message.
+.It Fl n
+Do not edit the file, just perform prerequisite checks.
+If this switch is repeated, all output will be suppressed and the check
+result is only indicated by the exit status.
 .El
 .Sh EXIT STATUS
 .Ex -std
 .Sh ENVIRONMENT
 .Bl -tag -width EDITOR
 .It Ev EDITOR
-The editor command used for editing the target text file.
-If no EDITOR variable is set, then the command vi is used.
+The editor command used for editing the configuration file.
+If the
+.Ev EDITOR
+environment variable is null or not set, the
+.Xr vi 1
+editor program will be used.
+.El
+.Sh FILES
+.Bl -tag -width EDITOR
+.It Pa @DUOAS_CONF@
+The default configuration file to edit, when no
+.Ar file
+argument is specified.
 .El
 .Sh SEE ALSO
-.Xr doas 1 ,
-.Xr doas.conf 5
+.Xr duoas 1 ,
+.Xr duoas.conf 5
 .Sh AUTHORS
-.An Jesse Smith Aq Mt jessefrgsmith@yahoo.ca
+.An Kimmo Suominen Aq Mt kim@netbsd.org

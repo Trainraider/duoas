@@ -1,4 +1,4 @@
-/* $OpenBSD: doas.h,v 1.12 2016/10/05 17:40:25 tedu Exp $ */
+/* $OpenBSD: duoas.h,v 1.12 2016/10/05 17:40:25 tedu Exp $ */
 /*
  * Copyright (c) 2015 Ted Unangst <tedu@openbsd.org>
  *

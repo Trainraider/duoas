@@ -26,7 +26,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "doas.h"
+#include "duoas.h"
 
 struct envnode {
 	RB_ENTRY(envnode) node;
@@ -124,7 +124,7 @@ createenv(struct rule *rule, struct passwd *original, struct passwd *target)
 	RB_INIT(&env->root);
 	env->count = 0;
 
-        addnode(env, "DOAS_USER", original->pw_name);
+        addnode(env, "DUOAS_USER", original->pw_name);
 	if (rule->options & KEEPENV)
            addnode(env, "HOME", original->pw_dir);
         else
